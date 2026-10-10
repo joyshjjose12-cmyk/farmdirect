@@ -1,4 +1,4 @@
-import { Eye, Pencil, CheckCircle } from 'lucide-react';
+import { Eye, Pencil, CheckCircle, Trash2 } from 'lucide-react';
 import type { DashboardListing } from '@/types';
 import StatusBadge from './StatusBadge';
 
@@ -7,6 +7,7 @@ interface ListingTableRowProps {
   onViewBids?: (listing: DashboardListing) => void;
   onEdit?: (listing: DashboardListing) => void;
   onMarkSold?: (listing: DashboardListing) => void;
+  onDelete?: (listing: DashboardListing) => void;
 }
 
 export default function ListingTableRow({
@@ -14,7 +15,9 @@ export default function ListingTableRow({
   onViewBids,
   onEdit,
   onMarkSold,
+  onDelete,
 }: ListingTableRowProps) {
+  const hasOrders = (listing.ordersCount ?? 0) > 0;
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:shadow-md lg:flex-row lg:items-center lg:gap-4">
       {/* Thumbnail + name */}
@@ -59,7 +62,7 @@ export default function ListingTableRow({
       </div>
 
       {/* Actions */}
-      <div className="flex flex-wrap items-center gap-2 lg:w-52 lg:justify-end">
+      <div className="flex flex-wrap items-center gap-2 lg:w-64 lg:justify-end">
         <button
           onClick={() => onViewBids?.(listing)}
           className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-50"
@@ -88,6 +91,15 @@ export default function ListingTableRow({
             <span className="hidden lg:inline">Sold</span>
           </button>
         )}
+        <button
+          onClick={() => onDelete?.(listing)}
+          disabled={hasOrders}
+          title={hasOrders ? 'This listing has orders and cannot be deleted' : 'Delete this listing'}
+          className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300 disabled:hover:bg-white disabled:hover:text-gray-300"
+        >
+          <Trash2 size={14} />
+          <span className="hidden lg:inline">Delete</span>
+        </button>
       </div>
     </div>
   );

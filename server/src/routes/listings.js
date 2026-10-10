@@ -155,19 +155,20 @@ router.delete(
   requireAuth,
   requireRole('farmer'),
   wrap(async (req, res) => {
-    const used = await query('SELECT 1 FROM orders WHERE listing_id = $1 LIMIT 1', [req.params.id]);
-    if (used.rowCount > 0) throw new HttpError(409, 'This listing already has orders, so it cannot be deleted.');
-    const r = await withTransaction(async (db) => {
-      await db.query('DELETE FROM bids WHERE listing_id = $1 AND $2::uuid = (SELECT farmer_id FROM listings WHERE id = $1)', [
+    await withTransaction(async (db) => {
+      const own = await db.query('SELECT 1 FROM listings WHERE id = $1 AND farmer_id = $2 FOR UPDATE', [
         req.params.id,
         req.user.id,
       ]);
-      return db.query('DELETE FROM listings WHERE id = $1 AND farmer_id = $2 RETURNING id', [
-        req.params.id,
-        req.user.id,
-      ]);
+      if (!own.rows[0]) throw new HttpError(404, 'Listing not found, or it is not yours.');
+
+      const used = await db.query('SELECT 1 FROM orders WHERE listing_id = $1 LIMIT 1', [req.params.id]);
+      if (used.rowCount > 0) throw new HttpError(409, 'This listing already has orders, so it cannot be deleted.');
+
+      await db.query('DELETE FROM bids WHERE listing_id = $1', [req.params.id]);
+      await db.query('DELETE FROM listing_images WHERE listing_id = $1', [req.params.id]);
+      await db.query('DELETE FROM listings WHERE id = $1 AND farmer_id = $2', [req.params.id, req.user.id]);
     });
-    if (!r.rows[0]) throw new HttpError(404, 'Listing not found, or it is not yours.');
     res.json({ ok: true });
   })
 );

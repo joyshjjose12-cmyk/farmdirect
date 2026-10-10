@@ -39,6 +39,7 @@ function mapRow(row: ListingRow): DashboardListing {
     status: row.status,
     bidsCount: row.bids?.length ?? 0,
     pendingBidsCount: row.bids?.filter((b) => b.status === 'pending').length ?? 0,
+    ordersCount: row.orders?.length ?? 0,
     listedDate: row.created_at,
   };
 }
@@ -92,6 +93,16 @@ export function useDashboardListings() {
     return { error: null };
   }, []);
 
+  const removeListing = useCallback(async (listingId: string) => {
+    const { error } = await api.del(`/listings/${listingId}`);
+
+    if (error) return { error };
+
+    setListings((prev) => prev.filter((l) => l.id !== listingId));
+    setRows((prev) => prev.filter((r) => r.id !== listingId));
+    return { error: null };
+  }, []);
+
   const stats: DashboardStats = {
     activeListings: listings.filter((l) => l.status === 'Active').length,
     pendingBids: rows.reduce(
@@ -112,5 +123,5 @@ export function useDashboardListings() {
     ),
   };
 
-  return { listings, stats, loading, error, markSold, refetch: fetchListings };
+  return { listings, stats, loading, error, markSold, removeListing, refetch: fetchListings };
 }

@@ -4,6 +4,7 @@ import 'dotenv/config';
 // Return numeric / bigint columns as JS numbers instead of strings
 pg.types.setTypeParser(1700, (v) => parseFloat(v)); // NUMERIC
 pg.types.setTypeParser(20, (v) => Number(v)); // BIGINT
+pg.types.setTypeParser(1082, (v) => v); // DATE -> plain 'YYYY-MM-DD' (no timezone shift)
 
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is not set. Copy server/.env.example to server/.env and fill it in.');

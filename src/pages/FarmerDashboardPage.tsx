@@ -6,6 +6,7 @@ import {
   CheckCircle,
   Plus,
   LayoutDashboard,
+  Trash2,
 } from 'lucide-react';
 import StatCard from '@/components/StatCard';
 import ListingTableRow from '@/components/ListingTableRow';
@@ -15,10 +16,12 @@ import { useDashboardListings } from '@/hooks/useDashboardListings';
 import type { DashboardListing } from '@/types';
 
 export default function FarmerDashboardPage() {
-  const { listings, stats, loading, error, markSold, refetch } = useDashboardListings();
+  const { listings, stats, loading, error, markSold, removeListing, refetch } = useDashboardListings();
   const [bidsListingId, setBidsListingId] = useState<string | null>(null);
   const bidsListing = listings.find((l) => l.id === bidsListingId) ?? null;
   const [toast, setToast] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<DashboardListing | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
 
   const handleMarkSold = async (listing: DashboardListing) => {
@@ -27,6 +30,20 @@ export default function FarmerDashboardPage() {
       error ? `Couldn't update ${listing.cropName}: ${error}` : `${listing.cropName} marked as sold.`
     );
     setTimeout(() => setToast(''), 3000);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await removeListing(deleteTarget.id);
+    setDeleting(false);
+    setToast(
+      error
+        ? `Couldn't delete ${deleteTarget.cropName}: ${error}`
+        : `${deleteTarget.cropName} listing deleted.`
+    );
+    setDeleteTarget(null);
+    setTimeout(() => setToast(''), 3500);
   };
 
   const handleViewBids = (listing: DashboardListing) => {
@@ -124,6 +141,7 @@ export default function FarmerDashboardPage() {
                     onViewBids={handleViewBids}
                     onEdit={handleEdit}
                     onMarkSold={handleMarkSold}
+                    onDelete={setDeleteTarget}
                   />
                 ))}
               </div>
@@ -142,6 +160,38 @@ export default function FarmerDashboardPage() {
           onClose={() => setBidsListingId(null)}
           onChanged={() => refetch(true)}
         />
+      )}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600">
+              <Trash2 size={20} />
+            </span>
+            <h3 className="text-lg font-bold text-gray-900">Delete this listing?</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              <span className="font-semibold text-gray-700">{deleteTarget.cropName}</span> and its{' '}
+              {deleteTarget.bidsCount} bid{deleteTarget.bidsCount === 1 ? '' : 's'} will be
+              permanently removed. This cannot be undone.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {toast && (

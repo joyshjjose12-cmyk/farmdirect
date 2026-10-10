@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Check, Sprout } from 'lucide-react';
 import FormField from '@/components/FormField';
 import QualitySelector from '@/components/QualitySelector';
 import PhotoUploadArea from '@/components/PhotoUploadArea';
 import LocationInput from '@/components/LocationInput';
-import { cropOptions, quantityUnits, editListingMock } from '@/data/mockData';
+import { cropOptions, quantityUnits } from '@/data/mockData';
 import type { CropType, ListingFormData, QuantityUnit } from '@/types';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -36,20 +36,70 @@ const emptyForm: ListingFormData = {
   harvestDate: '',
 };
 
+interface ListingRow {
+  image_url: string | null;
+  price_per_unit: number;
+  unit: string;
+  quantity_available: number;
+  location_text: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  quality_rating: number | null;
+  harvest_date: string | null;
+  organic: boolean | null;
+  description: string | null;
+  crops: { name: string; crop_type: string } | null;
+}
+
 export default function CreateEditListingPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
   const { user, profile } = useAuth();
 
-  const [form, setForm] = useState<ListingFormData>(
-    isEdit ? editListingMock : emptyForm
-  );
+  const [form, setForm] = useState<ListingFormData>(emptyForm);
+  const [loadingListing, setLoadingListing] = useState(isEdit);
+  const [existingImage, setExistingImage] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof ListingFormData, string>>>({});
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+
+  // Edit mode: load the real listing so every field starts as it was saved.
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingListing(true);
+      const { data, error } = await api.get<ListingRow>(`/listings/${id}`);
+      if (cancelled) return;
+      if (error || !data) {
+        setSubmitError(error ?? 'Could not load this listing.');
+        setLoadingListing(false);
+        return;
+      }
+      setForm({
+        cropName: data.crops?.name ?? '',
+        cropType: (data.crops?.crop_type ?? 'Vegetables') as CropType,
+        quantity: Number(data.quantity_available) || 0,
+        unit: (data.unit || 'kg') as QuantityUnit,
+        pricePerUnit: Number(data.price_per_unit) || 0,
+        qualityRating: Number(data.quality_rating) || 0,
+        description: data.description ?? '',
+        location: data.location_text ?? '',
+        latitude: data.latitude != null ? String(data.latitude) : '',
+        longitude: data.longitude != null ? String(data.longitude) : '',
+        organic: Boolean(data.organic),
+        harvestDate: data.harvest_date ? String(data.harvest_date).slice(0, 10) : '',
+      });
+      setExistingImage(data.image_url);
+      setLoadingListing(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const update = (field: keyof ListingFormData, value: string | number | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -174,8 +224,15 @@ export default function CreateEditListingPage() {
           </div>
         )}
 
+        {loadingListing && (
+          <p className="mb-6 rounded-xl bg-white px-4 py-6 text-center text-sm text-gray-400 shadow-sm">
+            Loading your listing…
+          </p>
+        )}
+
         <form
           onSubmit={handleSubmit}
+          hidden={loadingListing}
           className="space-y-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
         >
           {/* Crop name + type */}
@@ -191,6 +248,9 @@ export default function CreateEditListingPage() {
                 }`}
               >
                 <option value="">Select a crop…</option>
+                {form.cropName && !cropOptions.some((o) => o.value === form.cropName) && (
+                  <option value={form.cropName}>{form.cropName}</option>
+                )}
                 {cropOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
@@ -301,12 +361,9 @@ export default function CreateEditListingPage() {
             hint="A clear photo helps buyers evaluate your produce"
           >
             <PhotoUploadArea
+              key={existingImage ?? 'new'}
               onFileChange={setPhotoFile}
-              previewImage={
-                isEdit
-                  ? 'https://images.pexels.com/photos/18759607/pexels-photo-18759607.jpeg?auto=compress&cs=tinysrgb&h=400'
-                  : undefined
-              }
+              previewImage={existingImage ?? undefined}
             />
           </FormField>
 

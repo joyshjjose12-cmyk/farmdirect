@@ -135,6 +135,7 @@ export interface DashboardListing {
   status: ListingStatus;
   bidsCount: number;
   pendingBidsCount?: number;
+  ordersCount?: number;
   listedDate: string;
 }
 
